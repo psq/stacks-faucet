@@ -10,15 +10,15 @@ const db = new Database(`./faucet.db`, {
   fileMustExist: false,
 })
 
-const stmt1 = db.prepare('CREATE TABLE IF NOT EXISTS requests (ip TEXT, address DATE, time INT, nonce INT)')
+const stmt1 = db.prepare('CREATE TABLE IF NOT EXISTS requests (ip TEXT, address DATE, txid TEXT, time INT, nonce INT)')
 const info1 = stmt1.run()
 
 const stmt_findRequests = db.prepare('SELECT * FROM requests WHERE ip=? and address=? and time>?')
-const stmt_insertRequest = db.prepare('INSERT INTO requests (ip, address, time, nonce) VALUES (?, ?, ?, ?)')
+const stmt_insertRequest = db.prepare('INSERT INTO requests (ip, address, txid, time, nonce) VALUES (?, ?, ?, ?, ?)')
 
-function insertFaucetRequest(ip, address, time, nonce) {
-  const result = stmt_insertRequest.run(ip, address, time, nonce)
-  console.log("insertFaucetRequest", result)
+function insertFaucetRequest(ip, address, txid, time, nonce) {
+  const result = stmt_insertRequest.run(ip, address, txid, time, nonce)
+  // console.log("insertFaucetRequest", result)
   return result
 }
 
@@ -109,7 +109,7 @@ app.get('/faucet', async (req, res) => {
     const tx_id = `0x${result}`
     // const tx_id = '0x1234567890'
 
-    insertFaucetRequest(ip, address, Date.now(), nonce)
+    insertFaucetRequest(ip, address, tx_id, Date.now(), nonce)
     res.json({
       success: true,
       tx_id,
