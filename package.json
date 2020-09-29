@@ -1,0 +1,28 @@
+{
+  "dependencies": {
+    "@blockstack/stacks-transactions": "^0.7.0",
+    "better-sqlite3": "^7.1.1",
+    "bitcoinjs-lib": "^5.1.10",
+    "blockstack": "^21.1.0",
+    "bn": "^1.0.5",
+    "c32check": "^1.0.1",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "node-fetch": "^2.6.1"
+  },
+  "engines": {
+    "node": ">=12.15"
+  },
+  "keywords": [
+    "blockstack",
+    "stacks",
+    "faucet"
+  ],
+  "license": "MIT",
+  "main": "index.js",
+  "name": "stacks-faucet",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "version": "0.1.0"
+}
