@@ -13,17 +13,24 @@ const db = new Database(`./faucet.db`, {
 const stmt1 = db.prepare('CREATE TABLE IF NOT EXISTS requests (ip TEXT, address DATE, txid TEXT, time INT, nonce INT)')
 const info1 = stmt1.run()
 
-const stmt_findRequests = db.prepare('SELECT * FROM requests WHERE ip=? and address=? and time>?')
-const stmt_insertRequest = db.prepare('INSERT INTO requests (ip, address, txid, time, nonce) VALUES (?, ?, ?, ?, ?)')
+const stmt_all_request = db.prepare('SELECT * FROM requests ORDER BY time')
+const stmt_find_request = db.prepare('SELECT * FROM requests WHERE ip=? and address=? and time>?')
+const stmt_insert_request = db.prepare('INSERT INTO requests (ip, address, txid, time, nonce) VALUES (?, ?, ?, ?, ?)')
 
 function insertFaucetRequest(ip, address, txid, time, nonce) {
-  const result = stmt_insertRequest.run(ip, address, txid, time, nonce)
+  const result = stmt_insert_request.run(ip, address, txid, time, nonce)
   // console.log("insertFaucetRequest", result)
   return result
 }
 
 function findRequests(ip, address, time) {
-  const result = stmt_findRequests.all(ip, address, time)
+  const result = stmt_find_request.all(ip, address, time)
+  // console.log("findRequests", result)
+  return result
+}
+
+function allRequests() {
+  const result = stmt_all_request.all()
   // console.log("findRequests", result)
   return result
 }
@@ -62,7 +69,7 @@ async function faucet(network, private_key, address, stx_amount, nonce) {
     amount: new BN(stx_amount),
     senderKey: private_key,
     network,
-    memo: 'Faucet',
+    memo: 'Faucet-psq',
     nonce: new BN(nonce),
   })
 
@@ -78,6 +85,16 @@ async function faucet(network, private_key, address, stx_amount, nonce) {
   return result
 }
 
+
+app.get('/report', async (req, res) => {
+  const requests = allRequests()
+  const count = requests.length
+  res.json({
+    success: true,
+    count,
+    requests,
+  })
+})
 
 app.get('/faucet', async (req, res) => {
   const address = req.query.address
