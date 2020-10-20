@@ -98,14 +98,14 @@ app.get('/report', async (req, res) => {
 
 app.get('/faucet', async (req, res) => {
   const address = req.query.address
-  const stx_amount = 3_000_000_000_000
+  const stx_amount = 85_000_000_000_000
   const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
   const private_key = process.env.SECRET_KEY
   const network = GetStacksTestnetNetwork()
 
   try {
     const previous_requests = findRequests(ip, address, Date.now() - 1000 * 60 * 3)
-    if (previous_requests.length > 4) {
+    if (previous_requests.length > 2) {
       console.log(`${Date.now()} ${ip} ${address} ${stx_amount} Too many requests`)
       return res.status(429).json({
           error: 'Too many requests',
