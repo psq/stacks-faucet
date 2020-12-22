@@ -4,6 +4,7 @@ const { broadcastTransaction, makeSTXTokenTransfer, StacksTestnet } = require('@
 const BN = require('bn.js')
 const fetch = require('node-fetch')
 const Database = require('better-sqlite3')
+const c32 = require('c32check')
 
 const db = new Database(`./faucet.db`, {
   readonly: false,
@@ -40,10 +41,10 @@ const app = express()
 const port = 4444
 let nonce = 0
 
-function GetStacksTestnetNetwork() {
+function GetStacksTestnetNetwork(mode) {
   const stacksNetwork = new StacksTestnet()
-  stacksNetwork.coreApiUrl = process.env.URL
-  // console.log("GetStacksTestnetNetwork", stacksNetwork)
+  stacksNetwork.coreApiUrl = process.env[`URL_${mode}`]
+  console.log("GetStacksTestnetNetwork", mode, stacksNetwork)
   return stacksNetwork
 }
 
@@ -53,6 +54,7 @@ async function sendTransaction(serialized_tx) {
     headers: { 'Content-Type': 'application/octet-stream' },
     body: serialized_tx,
   })
+  console.log("serialized_tx", serialized_tx)
   console.log("sendTransaction.result", result)
   if (result.ok) {
     const text = await result.text()
@@ -76,11 +78,11 @@ async function faucet(network, private_key, address, stx_amount, nonce) {
   const tx_raw = tx.serialize().toString('hex')
   const serialized_tx = tx.serialize()
 
-  // console.log("serialized_tx", serialized_tx, tx)
+  console.log("serialized_tx", serialized_tx, tx)
 
   // const result = await sendTransaction(serialized_tx)
   const result = await broadcastTransaction(tx, network)
-  // console.log("result", result)
+  console.log("result", result)
 
   return result
 }
@@ -96,12 +98,54 @@ app.get('/report', async (req, res) => {
   })
 })
 
+app.get('/main-check', async (req, res) => {
+  const address = req.query.address
+  const testnet = 26 // 21 not P2PKH
+  const mainnet = 22 // 20 not P2PKH
+
+  const main_address = c32.c32addressDecode(address)
+  // console.log("main_address", main_address)
+
+  if (main_address[0] === mainnet) {
+    const test_stx = c32.c32address(testnet, main_address[1])
+    console.log("test_stx", test_stx, c32.c32ToB58(test_stx), c32.c32ToB58(address))
+    const result = await fetch(`http://xenon.blockstack.org:20443/v2/accounts/${test_stx}?proof=0`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/octet-stream' },
+    })
+    console.log("result", result)
+    if (result.ok) {
+      const text = JSON.parse(await result.text())
+      res.json({
+        ok: {
+    host: "xenon.blockstack.org:20443",
+    "main-address": address,
+    "test-address": test_stx,
+    "main-btc": c32.c32ToB58(address),
+    "test-btc": c32.c32ToB58(test_stx),
+    "balance-raw": text,
+    balance: parseInt(text.balance, 16) / 1000000,
+    locked: parseInt(text.locked, 16) / 1000000,
+        }
+      })
+    } else {
+      throw new Error(`stacks node error: "${result.statusText}"`)
+    }
+  } else {
+    console.log("address format not supported")
+    res.json({
+      error: 'format not supported',
+    })
+  }
+
+})
+
 app.get('/faucet', async (req, res) => {
   const address = req.query.address
   const stx_amount = 85_000_000_000_000
   const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
   const private_key = process.env.SECRET_KEY
-  const network = GetStacksTestnetNetwork()
+  const network = GetStacksTestnetNetwork(req.query.mode||'KRYPTON')
 
   try {
     const previous_requests = findRequests(ip, address, Date.now() - 1000 * 60 * 3)
@@ -113,7 +157,8 @@ app.get('/faucet', async (req, res) => {
         });
 
     }
-
+ 
+    console.log("calling faucet", private_key, address, stx_amount, nonce)
     let result = await faucet(network, private_key, address, stx_amount, nonce)
     if (result.error && result.reason === 'BadNonce') {
       nonce = result.reason_data.expected
@@ -148,4 +193,3 @@ app.get('/faucet', async (req, res) => {
 app.listen(port, () => {
   console.log(`listening at http://localhost:${port}`)
 })
-
